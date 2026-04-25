@@ -2,9 +2,14 @@ import streamlit as st
 import pickle
 from PIL import Image
 import numpy as np
-import cv2
 import re
 from pathlib import Path
+
+try:
+    import cv2
+    CV2_AVAILABLE = True
+except ImportError:
+    CV2_AVAILABLE = False
 
 try:
     import pytesseract
