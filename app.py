@@ -3,19 +3,18 @@ import pickle
 from PIL import Image
 import numpy as np
 import cv2
-import pytesseract
 import re
 from pathlib import Path
 
-# -----------------------------
-# (IMPORTANT) Set Tesseract Path (Windows only)
-# -----------------------------
-# Uncomment and update if needed
-# pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+try:
+    import pytesseract
+    TESSERACT_AVAILABLE = True
+except ImportError:
+    TESSERACT_AVAILABLE = False
 
-# -----------------------------
+# ----
 # Load Text Model
-# -----------------------------
+# ----
 BASE_DIR = Path(__file__).resolve().parent
 
 @st.cache_resource
@@ -30,9 +29,9 @@ def load_model():
 
 text_model, text_vectorizer = load_model()
 
-# -----------------------------
+# ----
 # Text Cleaning Function
-# -----------------------------
+# ----
 def clean_text(text):
     text = text.lower()
     text = re.sub(r"http\S+", " ", text)
@@ -40,14 +39,14 @@ def clean_text(text):
     text = re.sub(r"\s+", " ", text).strip()
     return text
 
-# -----------------------------
+# ----
 # Page Config
-# -----------------------------
+# ----
 st.set_page_config(page_title="Fake News Detector", page_icon="📰", layout="wide")
 
-# -----------------------------
+# ----
 # UI Styling
-# -----------------------------
+# ----
 st.markdown("""
 <style>
 .main {
@@ -66,22 +65,31 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# -----------------------------
+# ----
 # Title
-# -----------------------------
+# ----
 st.markdown('<div class="title">📰 Fake News Detection System</div>', unsafe_allow_html=True)
-st.markdown('<div class="subtitle">Detect Fake or Real News using Text & Images</div>', unsafe_allow_html=True)
+
+if TESSERACT_AVAILABLE:
+    st.markdown('<div class="subtitle">Detect Fake or Real News using Text & Images</div>', unsafe_allow_html=True)
+else:
+    st.markdown('<div class="subtitle">Detect Fake or Real News using Text</div>', unsafe_allow_html=True)
+    st.warning("⚠️ Image OCR not available. Please install Tesseract OCR for image support.")
 
 st.write("")
 
-# -----------------------------
+# ----
 # Mode Selection
-# -----------------------------
-option = st.radio("Choose Input Type:", ["Text News", "Image News"], horizontal=True)
+# ----
+modes = ["Text News"]
+if TESSERACT_AVAILABLE:
+    modes.append("Image News")
 
-# -----------------------------
+option = st.radio("Choose Input Type:", modes, horizontal=True)
+
+# ----
 # TEXT PREDICTION
-# -----------------------------
+# ----
 if option == "Text News":
     st.subheader("📄 Paste News Text")
 
@@ -100,10 +108,10 @@ if option == "Text News":
             else:
                 st.error("❌ FAKE NEWS")
 
-# -----------------------------
+# ----
 # IMAGE PREDICTION (OCR → TEXT MODEL)
-# -----------------------------
-elif option == "Image News":
+# ----
+elif option == "Image News" and TESSERACT_AVAILABLE:
     st.subheader("🖼 Upload News Image")
 
     uploaded_file = st.file_uploader("Upload Image", type=["jpg", "png", "jpeg"])
@@ -144,8 +152,8 @@ elif option == "Image News":
             except Exception as e:
                 st.error(f"Error processing image: {e}")
 
-# -----------------------------
+# ----
 # Footer
-# -----------------------------
+# ----
 st.write("---")
 st.write("Built with ❤️ using Streamlit")
