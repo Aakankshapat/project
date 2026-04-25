@@ -1,6 +1,6 @@
 import streamlit as st
 import pickle
-from PIL import Image
+from PIL import Image, ImageFilter
 import numpy as np
 import re
 from pathlib import Path
@@ -8,13 +8,13 @@ from pathlib import Path
 try:
     import cv2
     CV2_AVAILABLE = True
-except ImportError:
+except Exception:
     CV2_AVAILABLE = False
 
 try:
     import pytesseract
     TESSERACT_AVAILABLE = True
-except ImportError:
+except Exception:
     TESSERACT_AVAILABLE = False
 
 # ----
@@ -43,6 +43,13 @@ def clean_text(text):
     text = re.sub(r"[^a-zA-Z\s]", " ", text)
     text = re.sub(r"\s+", " ", text).strip()
     return text
+
+def prepare_ocr_image(image: Image.Image):
+    if CV2_AVAILABLE:
+        img = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2GRAY)
+        img = cv2.medianBlur(img, 3)
+        return img
+    return image.convert("L").filter(ImageFilter.MedianFilter(size=3))
 
 # ----
 # Page Config
@@ -92,14 +99,9 @@ if TESSERACT_AVAILABLE:
 
 option = st.radio("Choose Input Type:", modes, horizontal=True)
 
-# ----
-# TEXT PREDICTION
-# ----
 if option == "Text News":
     st.subheader("📄 Paste News Text")
-
     user_text = st.text_area("Enter News Content")
-
     if st.button("Detect Text News"):
         if user_text.strip() == "":
             st.warning("Please enter some text!")
@@ -107,58 +109,34 @@ if option == "Text News":
             cleaned = clean_text(user_text)
             vector = text_vectorizer.transform([cleaned])
             prediction = text_model.predict(vector)[0]
-
             if prediction == 1:
                 st.success("✅ REAL NEWS")
             else:
                 st.error("❌ FAKE NEWS")
 
-# ----
-# IMAGE PREDICTION (OCR → TEXT MODEL)
-# ----
 elif option == "Image News" and TESSERACT_AVAILABLE:
+    if not CV2_AVAILABLE:
+        st.info("OpenCV not installed; OCR will use PIL fallback.")
     st.subheader("🖼 Upload News Image")
-
     uploaded_file = st.file_uploader("Upload Image", type=["jpg", "png", "jpeg"])
-
     if uploaded_file is not None:
-        image = Image.open(uploaded_file)
+        image = Image.open(uploaded_file).convert("RGB")
         st.image(image, caption="Uploaded Image", use_container_width=True)
-
         if st.button("Detect Image News"):
             try:
-                img = np.array(image)
-
-                # Convert to grayscale
-                if len(img.shape) == 2:
-                    gray = img
-                else:
-                    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
-                # Improve OCR
-                gray = cv2.medianBlur(gray, 3)
-
-                # Extract text
-                extracted_text = pytesseract.image_to_string(gray)
-
+                ocr_image = prepare_ocr_image(image)
+                extracted_text = pytesseract.image_to_string(ocr_image)
                 st.subheader("📝 Extracted Text")
                 st.write(extracted_text if extracted_text.strip() else "No text detected")
-
-                # Predict using TEXT MODEL
                 cleaned = clean_text(extracted_text)
                 vector = text_vectorizer.transform([cleaned])
                 prediction = text_model.predict(vector)[0]
-
                 if prediction == 1:
                     st.success("✅ REAL NEWS IMAGE")
                 else:
                     st.error("❌ FAKE NEWS IMAGE")
-
             except Exception as e:
                 st.error(f"Error processing image: {e}")
 
-# ----
-# Footer
-# ----
 st.write("---")
 st.write("Built with ❤️ using Streamlit")
