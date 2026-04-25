@@ -5,16 +5,18 @@ import numpy as np
 import re
 from pathlib import Path
 
+CV2_AVAILABLE = False
 try:
     import cv2
     CV2_AVAILABLE = True
-except Exception:
+except ImportError:
     CV2_AVAILABLE = False
 
+TESSERACT_AVAILABLE = False
 try:
     import pytesseract
     TESSERACT_AVAILABLE = True
-except Exception:
+except ImportError:
     TESSERACT_AVAILABLE = False
 
 # ----
